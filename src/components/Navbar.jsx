@@ -5,7 +5,9 @@ import {
   ShieldAlert, 
   FolderGit2,
   FolderOpen,
-  Sparkles
+  Sparkles,
+  Search,
+  LayoutGrid
 } from 'lucide-react';
 
 export default function Navbar({
@@ -14,12 +16,15 @@ export default function Navbar({
   onOpenReviewPanel,
   onOpenUploadModal,
   discoveredFlows = [],
+  allPages = [],
+  allRoutes = [],
   activeFlowId,
   onSelectFlow,
   aiEngineName = 'Ollama',
   onOpenAiSetup,
   onOpenAiReview,
   hasActiveFlow = false,
+  onOpenPageBrowser,
 }) {
   return (
     <header className="sticky top-0 z-40 w-full border-b border-slate-800 bg-dark-900/90 backdrop-blur-md">
@@ -57,20 +62,58 @@ export default function Navbar({
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
           </div>
 
-          {discoveredFlows.length > 0 && (
-            <div className="relative">
-              <select
-                value={activeFlowId || ''}
-                onChange={(e) => onSelectFlow(e.target.value)}
-                className="px-3 py-1.5 rounded-lg bg-dark-800/80 border border-slate-700/60 text-xs font-medium text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer max-w-[240px]"
+          {(discoveredFlows.length > 0 || allPages.length > 0) && (
+            <div className="flex items-center gap-1.5">
+              <div className="relative">
+                <select
+                  value={activeFlowId || ''}
+                  onChange={(e) => onSelectFlow(e.target.value)}
+                  className="px-3 py-1.5 rounded-lg bg-dark-800/80 border border-slate-700/60 text-xs font-medium text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer max-w-[280px]"
+                >
+                  <option value="" disabled>-- Select Page or Flow --</option>
+                  
+                  {discoveredFlows.length > 0 && (
+                    <optgroup label={`🌟 Discovered Workflows (${discoveredFlows.length})`}>
+                      {discoveredFlows.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.title}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {allPages.length > 0 && (
+                    <optgroup label={`📄 Frontend Pages & Views (${allPages.length})`}>
+                      {allPages.map((p) => (
+                        <option key={`page_${p.id}`} value={`page_${p.id}`}>
+                          {p.label} ({p.module})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {allRoutes.length > 0 && (
+                    <optgroup label={`🌐 Backend Routes (${allRoutes.length})`}>
+                      {allRoutes.map((r) => (
+                        <option key={`route_${r.id}`} value={`route_${r.id}`}>
+                          {r.label} ({r.module})
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+
+              {/* Quick Search & Browse All Pages Modal Trigger */}
+              <button
+                type="button"
+                onClick={onOpenPageBrowser}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-dark-800/80 hover:bg-dark-700 border border-slate-700/60 text-slate-300 hover:text-cyan-300 text-xs font-medium transition-colors"
+                title={`Browse and search across all ${allPages.length} pages and ${allRoutes.length} routes`}
               >
-                <option value="" disabled>-- Discovered Architectural Flows --</option>
-                {discoveredFlows.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.title}
-                  </option>
-                ))}
-              </select>
+                <Search className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="hidden lg:inline">Browse ({allPages.length})</span>
+              </button>
             </div>
           )}
         </div>
