@@ -12,12 +12,15 @@ import MetricsOverview from './components/MetricsOverview';
 import EmptyStateWelcome from './components/EmptyStateWelcome';
 import AiSetupModal from './components/AiSetupModal';
 import AiFlowReviewDrawer from './components/AiFlowReviewDrawer';
+import PageBrowserModal from './components/PageBrowserModal';
 
 import { buildGraphIndex } from './services/graphParser.js';
 import { 
   discoverTopFlows, 
   matchFlowQuery, 
-  buildFlowResultFromNodeIds 
+  buildFlowResultFromNodeIds,
+  extractAllPagesAndRoutes,
+  traceDomainConstrainedPath
 } from './services/flowTracer.js';
 import { extractCodeReviewInsights } from './services/codeReviewInsights.js';
 import { Loader2 } from 'lucide-react';
@@ -46,6 +49,7 @@ export default function App() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isAiSetupOpen, setIsAiSetupOpen] = useState(false);
   const [isAiReviewOpen, setIsAiReviewOpen] = useState(false);
+  const [isPageBrowserOpen, setIsPageBrowserOpen] = useState(false);
   const [aiStatus, setAiStatus] = useState(null);
 
   const fetchAiStatus = async () => {
@@ -120,6 +124,11 @@ export default function App() {
     }
   }, [graphIndex]);
 
+  // Dynamically extract all frontend pages/views and backend routes from the indexed graph
+  const { pages: allPages, routes: allRoutes } = useMemo(() => {
+    return extractAllPagesAndRoutes(graphIndex);
+  }, [graphIndex]);
+
   // Natural Language Search handler
   const handleSearch = (query) => {
     setSearchQuery(query);
@@ -134,15 +143,39 @@ export default function App() {
     }
   };
 
-  // Flow selection handler
-  const handleSelectFlow = (flowId) => {
-    const target = discoveredFlows.find(f => f.id === flowId);
+  // Universal Flow, Page or Route Selection Handler
+  const handleSelectFlow = (selectionId) => {
+    if (!selectionId) return;
+
+    // 1. Check if it's an existing auto-discovered flow
+    const target = discoveredFlows.find(f => f.id === selectionId);
     if (target) {
       setActiveFlow(target);
-      setActiveFlowId(flowId);
+      setActiveFlowId(selectionId);
       setSearchQuery(target.title);
       setExpandedNodeIds(new Set());
       setVisibleLimit(Math.max(20, target.steps.length));
+      return;
+    }
+
+    // 2. Otherwise it's a page or route ID (e.g. `page_${id}` or `route_${id}`)
+    const rawNodeId = selectionId.replace(/^(page|route)_/, '');
+    const node = graphIndex?.nodeMap?.get(rawNodeId);
+    if (node) {
+      const pathNodeIds = traceDomainConstrainedPath(node.id, graphIndex, 12, 'read');
+      const cleanLabel = (node.displayLabel || node.label || 'Flow').replace(/\(\)$/, '');
+      const flow = buildFlowResultFromNodeIds(
+        pathNodeIds,
+        `${cleanLabel} Flow`,
+        `Complete architecture flow for ${cleanLabel} (${node.source_file || ''})`,
+        graphIndex,
+        `custom_flow_${node.id}`
+      );
+      setActiveFlow(flow);
+      setActiveFlowId(selectionId);
+      setSearchQuery(`${cleanLabel} flow`);
+      setExpandedNodeIds(new Set());
+      setVisibleLimit(Math.max(20, flow.steps.length));
     }
   };
 
@@ -244,8 +277,11 @@ export default function App() {
         onOpenReviewPanel={() => setIsReviewPanelOpen(true)}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
         discoveredFlows={discoveredFlows}
+        allPages={allPages}
+        allRoutes={allRoutes}
         activeFlowId={activeFlowId}
         onSelectFlow={handleSelectFlow}
+        onOpenPageBrowser={() => setIsPageBrowserOpen(true)}
         aiEngineName={aiStatus?.engines?.[aiStatus?.activeEngine]?.name?.split(' ')[0] || 'AI'}
         onOpenAiSetup={() => setIsAiSetupOpen(true)}
         onOpenAiReview={() => setIsAiReviewOpen(true)}
@@ -408,6 +444,16 @@ export default function App() {
           setIsAiReviewOpen(false);
           setIsAiSetupOpen(true);
         }}
+      />
+
+      {/* Full Page, View & Route Browser Modal */}
+      <PageBrowserModal
+        isOpen={isPageBrowserOpen}
+        onClose={() => setIsPageBrowserOpen(false)}
+        allPages={allPages}
+        allRoutes={allRoutes}
+        discoveredFlows={discoveredFlows}
+        onSelectFlowOrPage={handleSelectFlow}
       />
     </div>
   );

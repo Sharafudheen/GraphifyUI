@@ -25,6 +25,42 @@ export function normalizeDomainToken(token) {
 }
 
 /**
+ * Synonym groups for domain matching.
+ * Keys in the same group are treated as the same domain for path tracing.
+ * CRITICAL: 'po' and 'pos' are in DIFFERENT groups.
+ */
+export const SYNONYM_GROUPS = [
+  ['purchaseorder', 'po', 'grn', 'purchase'],
+  ['sell', 'pos', 'transaction', 'sale', 'sales', 'billing'],
+  ['product', 'inventory', 'medicine', 'item', 'drug', 'stock'],
+  ['user', 'auth', 'login', 'account', 'staff', 'employee', 'customer'],
+  ['report', 'analytic', 'dashboard', 'stat', 'summary', 'insight'],
+  ['supplier', 'vendor', 'manufacturer'],
+  ['category', 'type', 'classification'],
+  ['expense', 'cost', 'finance', 'payment', 'ledger'],
+  ['notification', 'alert', 'message', 'sms', 'email'],
+  ['setting', 'config', 'preference', 'option'],
+  ['return', 'refund', 'exchange'],
+  ['order', 'booking', 'reservation'],
+];
+
+/**
+ * Returns true if two domain tokens are semantically related
+ * (same group or identical after normalization).
+ * Crucially: 'po' !== 'pos' — they are in different synonym groups.
+ */
+export function areDomainsRelated(d1, d2) {
+  if (!d1 || !d2) return false;
+  const n1 = normalizeDomainToken(d1);
+  const n2 = normalizeDomainToken(d2);
+  if (n1 === n2) return true;
+  for (const group of SYNONYM_GROUPS) {
+    if (group.includes(n1) && group.includes(n2)) return true;
+  }
+  return false;
+}
+
+/**
  * Extracts the functional domain/module key from a node's path or identifier.
  * E.g. 'backend/src/modules/purchaseOrders/...' -> 'purchaseorder'
  * E.g. 'frontend/src/pages/PurchaseOrder/...' -> 'purchaseorder'
@@ -73,8 +109,8 @@ export function calculateModularAffinity(sourceNode, targetNode, activeDomain = 
   const srcDomain = activeDomain || extractDomainKey(sourceNode);
   const tgtDomain = extractDomainKey(targetNode);
 
-  // 1. Same domain match
-  if (srcDomain === tgtDomain) {
+  // 1. Same domain match (includes synonym-related domains)
+  if (areDomainsRelated(srcDomain, tgtDomain)) {
     return 100;
   }
 
@@ -175,7 +211,7 @@ export function findNextTierNode(currentTierId, activeDomain, graphIndex, visite
         const tgt = nodeMap.get(l.target);
         if (tgt && tgt.tier?.id === targetTier) {
           const tDomain = extractDomainKey(tgt);
-          if (tDomain === activeDomain || (targetTier === 'API_CLIENT' && (tDomain === 'shared' || tgt.source_file?.includes('api')))) {
+          if (areDomainsRelated(tDomain, activeDomain) || (targetTier === 'API_CLIENT' && (tDomain === 'shared' || tgt.source_file?.includes('api')))) {
             candidates.push({ node: tgt, isDirect: true });
           }
         }
@@ -211,7 +247,7 @@ export function findNextTierNode(currentTierId, activeDomain, graphIndex, visite
     const domainCandidates = nodes.filter(n => {
       if (visited.has(n.id) || n.id.startsWith('ref_')) return false;
       if (n.tier?.id !== targetTier) return false;
-      return extractDomainKey(n) === activeDomain;
+      return areDomainsRelated(extractDomainKey(n), activeDomain);
     });
 
     for (const dc of domainCandidates) {
@@ -723,11 +759,14 @@ function buildMainNodeCardHtml(s, stepNum, isExpanded = false) {
     `<div class='graphflow-desc' title='${safeDesc}'>${safeDesc}</div>` +
     `<div class='graphflow-file' title='${safeFile}:${safeLoc}'>${safeFile}:${safeLoc}</div>` +
     `<div class='graphflow-actions'>` +
-      `<button type='button' class='graphflow-btn graphflow-btn-code action-code' data-node-id='${s.id}' title='Open Code Snippet & IDE Launcher'>` +
-        `<span>&lt;/&gt; Code</span>` +
+      `<button type='button' class='graphflow-btn graphflow-btn-code action-code' data-node-id='${s.id}' title='Open Code Snippet &amp; IDE Launcher' style='padding:2px 6px;font-size:9px;'>` +
+        `<span>&lt;/&gt;</span>` +
       `</button>` +
-      `<button type='button' class='${digBtnClass}' data-node-id='${s.id}' title='${digBtnTitle}' ${digBtnStyle}>` +
-        `<span>${digBtnLabel}</span>` +
+      `<button type='button' class='${digBtnClass}' data-node-id='${s.id}' title='${digBtnTitle}' ${digBtnStyle} style='padding:2px 6px;font-size:9px;'>` +
+        `<span>${isExpanded ? '&#x21ba;' : '&#128269;'}</span>` +
+      `</button>` +
+      `<button type='button' class='graphflow-btn action-info' data-node-id='${s.id}' title='Human-readable explanation of this component' style='padding:2px 6px;font-size:9px;background:rgba(99,102,241,0.15);color:#a5b4fc;border:1px solid rgba(99,102,241,0.3);border-radius:4px;cursor:pointer;'>` +
+        `<span>&#8505;</span>` +
       `</button>` +
     `</div>` +
   `</div>`;

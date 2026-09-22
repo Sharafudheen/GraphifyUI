@@ -3,7 +3,8 @@ import {
   discoverTopFlows, 
   matchFlowQuery, 
   buildFlowResultFromNodeIds, 
-  generateMermaidFlowchart 
+  generateMermaidFlowchart,
+  extractAllPagesAndRoutes
 } from './src/services/flowTracer.js';
 import { getHumanReadableDescription } from './src/services/humanDescriber.js';
 import { extractCodeReviewInsights } from './src/services/codeReviewInsights.js';
@@ -100,6 +101,11 @@ async function runUniversalTests() {
     console.log(`     ${idx + 1}. ${f.title} (${f.totalSteps} steps) - ${f.steps.map(s => s.tier?.id).slice(0, 3).join(' -> ')}...`);
   });
   if (discovered.length === 0) throw new Error('Expected at least 1 discovered flow');
+
+  const { pages: extractedPages, routes: extractedRoutes } = extractAllPagesAndRoutes(graphIndex);
+  console.log(`   ✓ Extracted ${extractedPages.length} distinct UI Pages/Views and ${extractedRoutes.length} backend routes across codebase`);
+  if (extractedPages.length === 0) throw new Error('Expected at least 1 page extracted');
+  if (extractedRoutes.length === 0) throw new Error('Expected at least 1 route extracted');
 
   // TEST 6: Universal Natural Language Search & Path Stitching
   console.log('\n6️⃣ Testing Universal Query Matcher & Path Stitcher:');

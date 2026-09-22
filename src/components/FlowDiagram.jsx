@@ -210,7 +210,54 @@ export default function FlowDiagram({
         return;
       }
 
-      // 3. Expand Next Steps Button
+      // 3. Info (i) Button: Show human-readable description tooltip
+      const infoBtn = e.target.closest('.action-info');
+      if (infoBtn) {
+        e.stopPropagation();
+        e.preventDefault();
+        const nodeId = infoBtn.getAttribute('data-node-id');
+        const target = findTargetNode(nodeId);
+        if (target) {
+          // Remove any existing info tooltip
+          document.querySelectorAll('.graphflow-info-tooltip').forEach(el => el.remove());
+          const tooltip = document.createElement('div');
+          tooltip.className = 'graphflow-info-tooltip';
+          tooltip.style.cssText = `
+            position: fixed;
+            z-index: 9999;
+            max-width: 360px;
+            padding: 14px 16px;
+            background: #0f172a;
+            border: 1px solid rgba(99,102,241,0.5);
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8);
+            color: #e2e8f0;
+            font-size: 12px;
+            line-height: 1.6;
+            font-family: sans-serif;
+            pointer-events: none;
+          `;
+          const rect = infoBtn.getBoundingClientRect();
+          tooltip.style.left = `${Math.min(rect.left, window.innerWidth - 380)}px`;
+          tooltip.style.top = `${rect.bottom + 8}px`;
+          const label = target.displayLabel || target.label || '';
+          const desc = target.humanDescription || (typeof target.getHumanReadableDescription === 'function' ? target.getHumanReadableDescription() : '');
+          tooltip.innerHTML = `
+            <div style="font-size:10px;font-weight:700;color:#a5b4fc;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;">${target.tier?.label || 'Component'}</div>
+            <div style="font-weight:600;font-size:13px;color:#f1f5f9;margin-bottom:8px;">${label}</div>
+            <div style="color:#94a3b8;">${desc || 'No description available.'}</div>
+            <div style="margin-top:8px;font-size:10px;color:#475569;font-family:monospace;">${(target.source_file || '').split(/[/\\]/).slice(-2).join('/')}</div>
+          `;
+          document.body.appendChild(tooltip);
+          // Auto-dismiss after 5s or on next click
+          const dismiss = () => { tooltip.remove(); document.removeEventListener('click', dismiss); };
+          setTimeout(() => document.addEventListener('click', dismiss), 50);
+          setTimeout(() => tooltip.remove(), 5000);
+        }
+        return;
+      }
+
+      // 4. Expand Next Steps Button
       const expandBtn = e.target.closest('#btn_expand_steps, .btn-expand-steps');
       if (expandBtn || e.target.textContent?.includes('Expand Next')) {
         e.stopPropagation();
@@ -441,6 +488,18 @@ export default function FlowDiagram({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onWheel={(e) => {
+          if (e.ctrlKey || e.metaKey) {
+            // Pinch-to-zoom or Ctrl+scroll
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? 1.1 : 0.909;
+            setZoom((z) => Math.min(5, Math.max(0.1, z * delta)));
+          } else {
+            // Bare scroll → pan vertically
+            e.preventDefault();
+            setPan((p) => ({ x: p.x, y: p.y - e.deltaY }));
+          }
+        }}
       >
         {renderError ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center text-rose-400">

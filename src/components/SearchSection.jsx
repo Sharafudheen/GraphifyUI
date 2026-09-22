@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, X, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { Search, X, CornerDownLeft } from 'lucide-react';
 
 export default function SearchSection({
   searchQuery,
   onSearch,
-  discoveredFlows = [],
-  onSelectFlow,
   activeFlow,
 }) {
   const [localQuery, setLocalQuery] = useState(searchQuery || '');
@@ -20,11 +18,6 @@ export default function SearchSection({
   const handleClear = () => {
     setLocalQuery('');
     onSearch('');
-  };
-
-  const handleChipClick = (flow) => {
-    setLocalQuery(flow.title);
-    onSelectFlow(flow.id);
   };
 
   return (
@@ -66,26 +59,6 @@ export default function SearchSection({
           </div>
         </form>
 
-        {/* Dynamic Discovered Workflow Suggestion Chips */}
-        {discoveredFlows.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="flex items-center gap-1 text-slate-400 font-medium mr-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              Discovered Flows:
-            </span>
-
-            {discoveredFlows.map((flow) => (
-              <button
-                key={flow.id}
-                onClick={() => handleChipClick(flow)}
-                className="px-2.5 py-1.5 rounded-lg bg-dark-800/80 hover:bg-dark-700 border border-slate-700/70 hover:border-cyan-500/50 text-slate-300 hover:text-cyan-300 transition-all text-left flex items-center gap-1.5"
-              >
-                <span>{flow.title}</span>
-                <ArrowRight className="w-3 h-3 text-slate-500" />
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Active Flow Intent Banner */}
         {activeFlow && (
