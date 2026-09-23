@@ -59,6 +59,7 @@ export default function FlowDiagram({
   onResetExpansions,
 }) {
   const containerRef = useRef(null);
+  const canvasRef = useRef(null);
   const [svgContent, setSvgContent] = useState('');
   const [renderError, setRenderError] = useState(null);
   const [copied, setCopied] = useState(false);
@@ -78,6 +79,28 @@ export default function FlowDiagram({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen]);
+
+  // Non-passive wheel listener on the canvas — prevents the browser from zooming
+  // or scrolling the page when the cursor is inside the diagram area.
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+
+    const handleWheel = (e) => {
+      e.preventDefault(); // Must be called from a non-passive listener
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl+scroll or trackpad pinch → zoom diagram only
+        const factor = e.deltaY < 0 ? 1.1 : 0.909;
+        setZoom((z) => Math.min(5, Math.max(0.1, z * factor)));
+      } else {
+        // Bare scroll → pan vertically inside diagram
+        setPan((p) => ({ x: p.x, y: p.y - e.deltaY }));
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []); // canvasRef.current is stable; zoom/pan use functional updates so no deps needed
 
   const expandedNodeIds = controlledExpandedNodeIds !== undefined ? controlledExpandedNodeIds : internalExpandedNodeIds;
 
@@ -481,25 +504,14 @@ export default function FlowDiagram({
         </div>
       </div>
 
-      {/* Main Canvas */}
+      {/* Main Canvas — wheel events handled via non-passive listener in useEffect */}
       <div
+        ref={canvasRef}
         className="relative flex-1 w-full overflow-hidden cursor-grab active:cursor-grabbing bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:16px_16px]"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={(e) => {
-          if (e.ctrlKey || e.metaKey) {
-            // Pinch-to-zoom or Ctrl+scroll
-            e.preventDefault();
-            const delta = e.deltaY < 0 ? 1.1 : 0.909;
-            setZoom((z) => Math.min(5, Math.max(0.1, z * delta)));
-          } else {
-            // Bare scroll → pan vertically
-            e.preventDefault();
-            setPan((p) => ({ x: p.x, y: p.y - e.deltaY }));
-          }
-        }}
       >
         {renderError ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center text-rose-400">

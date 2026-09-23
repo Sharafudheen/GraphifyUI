@@ -6,7 +6,9 @@ import {
   getAllAiStatus, 
   setActiveAiEngine, 
   startOllamaServer, 
-  analyzeFlowWithAi 
+  analyzeFlowWithAi,
+  refineQueryWithAi,
+  enrichFlowWithAi
 } from './aiService.js';
 
 const app = express();
@@ -247,6 +249,36 @@ app.post('/api/ai/explain-flow', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('[API] AI flow analysis error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// AI Query Refinement Endpoint
+app.post('/api/ai/refine-query', async (req, res) => {
+  try {
+    const { query, engine, context } = req.body;
+    if (!query || !query.trim()) {
+      return res.status(400).json({ error: 'Query is required.' });
+    }
+    const result = await refineQueryWithAi(query.trim(), engine || '', context || null);
+    res.json(result);
+  } catch (err) {
+    console.error('[API] Query refinement error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// AI Flow Enrichment Endpoint — enriches each step's description using AI
+app.post('/api/ai/enrich-flow', async (req, res) => {
+  try {
+    const { steps, engine } = req.body;
+    if (!steps || !Array.isArray(steps) || steps.length === 0) {
+      return res.status(400).json({ error: 'steps array is required.' });
+    }
+    const result = await enrichFlowWithAi(steps, engine || '');
+    res.json(result);
+  } catch (err) {
+    console.error('[API] Flow enrichment error:', err);
     res.status(500).json({ error: err.message });
   }
 });
